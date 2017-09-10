@@ -1,4 +1,5 @@
-# Add your requirements here like:
-# numpy
-# scipy>=0.9
+# List of requirements for this project
+--index-url https://pypi.python.org/simple/
+
+numpy==1.13.1
 
