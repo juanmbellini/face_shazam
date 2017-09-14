@@ -85,7 +85,12 @@ def main(args):
     setup_logging(args.log_level)
     _logger.info("Starting application...")
 
-    all_subjects = image_utils.get_subjects_dictionary(args.path_to_subjects, args.image_extension)
+    try:
+        all_subjects = image_utils.get_subjects_dictionary(args.path_to_subjects, args.image_extension)
+    except ValueError as e:
+        _logger.error("There were validation errors with the images. Exception message: {}".format(e))
+    except IOError as e:
+        _logger.error("There were IO errors while loading the images. Exception message: {}".format(e))
     return
 
 
