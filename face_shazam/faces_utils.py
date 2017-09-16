@@ -16,13 +16,16 @@ def process_faces(all_subjects, training_percentage):
     # TODO complete returns
     separated_data_set = _separate_data_set(all_subjects, training_percentage)
     training_set = separated_data_set["train"]
-    mean_face = _mean_face(training_set)
+    difference_matrix = _get_difference_matrix(training_set)  # TODO: usar para calcular autocaras
+    l_matrix = _l_matrix(difference_matrix)
 
-    cov = _minus_mean(training_set, mean_face)  # TODO: use numpy's cov function?
+    # TODO: Calcular eigenvectors
+    # TODO: Calcular eigenfaces (pag. 75)
+
     return
 
 
-def _minus_mean(training_set, mean_face):  # TODO: change name?
+def _get_difference_matrix(training_set):  # TODO: change name?
     """ Returns the resultant matrix of subtracting the given mean_face to each row in the given training_set.
     Note: The training_set and the mean_face must be represented as ndarrays.
 
@@ -34,8 +37,12 @@ def _minus_mean(training_set, mean_face):  # TODO: change name?
     """
     if not isinstance(training_set, np.ndarray):
         raise ValueError("Not an ndarray")
-    training_set = [training_set[row, :] - mean_face for row in range(0, training_set.shape[0])]
-    return training_set
+    mean_face = _mean_face(training_set)
+    result = np.empty(training_set.shape)
+    for row in range(0, training_set.shape[0]):
+        result[row, :] = training_set[row, :] - mean_face
+    # result = [training_set[row, :] - mean_face for row in range(training_set.shape[0])]
+    return result
 
 
 def _mean_face(training_set):
@@ -49,6 +56,19 @@ def _mean_face(training_set):
     if not isinstance(training_set, np.ndarray):
         raise ValueError("Not an ndarray")
     return np.mean(training_set, 0)
+
+
+def _l_matrix(difference_matrix):
+    """ Calculates the L matrix.
+
+    Params:
+        difference_matrix (ndarray):
+    Returns:
+        matrix:
+    """
+    if not isinstance(difference_matrix, np.ndarray):
+        raise ValueError("Not an ndarray")
+    return np.matrix(difference_matrix) * np.matrix(difference_matrix.transpose())
 
 
 def _separate_data_set(all_subjects, training_percentage):
@@ -67,7 +87,7 @@ def _separate_data_set(all_subjects, training_percentage):
     """
     if all_subjects is None or not isinstance(all_subjects, dict) or not all_subjects:
         raise ValueError("None, non-dictionary or empty subjects dictionary")
-    matrix = _to_matrix_representation(all_subjects)
+    matrix = _to_matrix_representation(all_subjects)  # TODO: agarrar mejor las cosas
     # We assume that it is a well formed images data set.
     training_amount = int(math.ceil(len(all_subjects) * len(all_subjects.values()[0]) * training_percentage))
 
