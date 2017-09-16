@@ -4,6 +4,7 @@ import logging
 import sys
 
 import image_utils
+import faces_utils
 from face_shazam import __version__
 
 _logger = logging.getLogger(__name__)
@@ -89,8 +90,13 @@ def main(args):
         all_subjects = image_utils.get_subjects_dictionary(args.path_to_subjects, args.image_extension)
     except ValueError as e:
         _logger.error("There were validation errors with the images. Exception message: {}".format(e))
+        exit(1)
     except IOError as e:
         _logger.error("There were IO errors while loading the images. Exception message: {}".format(e))
+        exit(1)
+
+    # noinspection PyUnboundLocalVariable
+    faces_utils.process_faces(all_subjects, 0.6)  # If all_subjects is not initialized, exit(1) was executed
     return
 
 
