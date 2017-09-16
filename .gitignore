@@ -43,3 +43,6 @@ docs/api/*
 docs/_build/*
 cover/*
 MANIFEST
+
+# Data files
+subjects
