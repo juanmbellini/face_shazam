@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import itertools
 import math
 
 import numpy as np
@@ -87,13 +88,20 @@ def _separate_data_set(all_subjects, training_percentage):
     """
     if all_subjects is None or not isinstance(all_subjects, dict) or not all_subjects:
         raise ValueError("None, non-dictionary or empty subjects dictionary")
-    matrix = _to_matrix_representation(all_subjects)  # TODO: agarrar mejor las cosas
-    # We assume that it is a well formed images data set.
-    training_amount = int(math.ceil(len(all_subjects) * len(all_subjects.values()[0]) * training_percentage))
+
+    # We assume data is well formed
+    total_per_subject = len(all_subjects.values()[0])
+    training_per_subject = int(math.ceil(total_per_subject * training_percentage))
+    training_data = dict(itertools.izip(all_subjects.keys(),
+                                        map(lambda image_list: image_list[0:training_per_subject],
+                                            all_subjects.values())))
+    testing_data = dict(itertools.izip(all_subjects.keys(),
+                                       map(lambda image_list: image_list[training_per_subject:total_per_subject],
+                                           all_subjects.values())))
 
     return {
-        "train": matrix[0:training_amount, :],
-        "test": matrix[training_amount:matrix.shape[0], :]
+        "train": _to_matrix_representation(training_data),
+        "test": _to_matrix_representation(testing_data)
     }
 
 
