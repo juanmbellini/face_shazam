@@ -1,8 +1,11 @@
 # -*- coding: utf-8 -*-
 import itertools
+import logging
 import math
 
 import numpy as np
+
+_logger = logging.getLogger(__name__)
 
 
 def process_faces(all_subjects, training_percentage):
@@ -15,13 +18,26 @@ def process_faces(all_subjects, training_percentage):
 
     """
     # TODO complete returns
+    _logger.info("Separating data set into training and testing data sets")
     separated_data_set = _separate_data_set(all_subjects, training_percentage)
     training_set = separated_data_set["train"]
-    normalized_matrix = _get_normalized_matrix(training_set)  # TODO: usar para calcular autocaras
+
+    _logger.info("Normalizing the training data set in matrix representation")
+    normalized_matrix = _get_normalized_matrix(training_set)
+
+    _logger.info("Calculating the reduced covariance matrix")
     reduced_cov_matrix = normalized_matrix.transpose() * normalized_matrix
 
-    # TODO: Calcular eigenvectors
-    # TODO: Calcular eigenfaces (pag. 75)
+    _logger.info("Calculating eigen values and eigen vectors")
+    eigen_values, eigen_vectors = np.linalg.eig(reduced_cov_matrix)  # TODO: Use own methods to calculate eigens
+
+    _logger.info("Sorting the eigen vectors")
+    sorted_indexes = eigen_values.argsort()[::-1]
+    eigen_values = eigen_values[sorted_indexes]
+    eigen_vectors = eigen_vectors[:, sorted_indexes]
+
+    _logger.info("Calculating eigen faces")
+    eigen_faces = normalized_matrix * eigen_vectors  # TODO: get only best ones
 
     return
 
