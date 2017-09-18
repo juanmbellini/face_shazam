@@ -17,8 +17,8 @@ def process_faces(all_subjects, training_percentage):
     # TODO complete returns
     separated_data_set = _separate_data_set(all_subjects, training_percentage)
     training_set = separated_data_set["train"]
-    difference_matrix = _get_difference_matrix(training_set)  # TODO: usar para calcular autocaras
-    l_matrix = _l_matrix(difference_matrix)
+    normalized_matrix = _get_normalized_matrix(training_set)  # TODO: usar para calcular autocaras
+    reduced_cov_matrix = normalized_matrix.transpose() * normalized_matrix
 
     # TODO: Calcular eigenvectors
     # TODO: Calcular eigenfaces (pag. 75)
@@ -26,50 +26,20 @@ def process_faces(all_subjects, training_percentage):
     return
 
 
-def _get_difference_matrix(training_set):  # TODO: change name?
-    """ Returns the resultant matrix of subtracting the given mean_face to each row in the given training_set.
-    Note: The training_set and the mean_face must be represented as ndarrays.
+def _get_normalized_matrix(training_set):
+    """ Returns the resultant matrix of subtracting the mean by column
+    to each column in the given training_set (in matrix representation).
 
     Params:
-        training_set (ndarray): The training set represented as an ndarray where each row is an image.
-        mean_face (ndarray): An ndarray representing the mean face.
+        training_set (matrix): The training set in matrix representation.
     Returns:
-         ndarray: The resulting matrix.
+         matrix: The resulting matrix.
     """
-    if not isinstance(training_set, np.ndarray):
+    if not isinstance(training_set, np.matrix):
         raise ValueError("Not an ndarray")
-    mean_face = _mean_face(training_set)
-    result = np.empty(training_set.shape)
-    for row in range(0, training_set.shape[0]):
-        result[row, :] = training_set[row, :] - mean_face
-    # result = [training_set[row, :] - mean_face for row in range(training_set.shape[0])]
-    return result
+    mean_face = np.mean(training_set, 1)  # Calculates the mean by column
 
-
-def _mean_face(training_set):
-    """ Calculates the mean face of the training set of faces, given in matrix representation.
-
-    Params:
-        training_set (ndarray): The matrix representation of the training data set.
-    Returns:
-        ndarray: The mean face of the given training_set of faces (represented as an ndarray).
-    """
-    if not isinstance(training_set, np.ndarray):
-        raise ValueError("Not an ndarray")
-    return np.mean(training_set, 0)
-
-
-def _l_matrix(difference_matrix):
-    """ Calculates the L matrix.
-
-    Params:
-        difference_matrix (ndarray):
-    Returns:
-        matrix:
-    """
-    if not isinstance(difference_matrix, np.ndarray):
-        raise ValueError("Not an ndarray")
-    return np.matrix(difference_matrix) * np.matrix(difference_matrix.transpose())
+    return training_set - mean_face
 
 
 def _separate_data_set(all_subjects, training_percentage):
@@ -84,7 +54,7 @@ def _separate_data_set(all_subjects, training_percentage):
         dict: A dictionary with two keys: train and test.
         For each one, the values is the corresponding data-set splitted according the given training_percentage,
         in matrix representation
-        (i.e each image, which in turn must be represented as an ndarray, is a row in the matrix).
+        (i.e each image, which in turn must be represented as an ndarray, is a column in the matrix).
     """
     if all_subjects is None or not isinstance(all_subjects, dict) or not all_subjects:
         raise ValueError("None, non-dictionary or empty subjects dictionary")
@@ -112,39 +82,67 @@ def _to_matrix_representation(data_set):
     Params:
         data_set (dict): The dictionary holding the images.
     Returns:
-        ndarray: The matrix representation of the data-set.
+        matrix: The matrix representation of the data-set.
     """
     if data_set is None or not isinstance(data_set, dict) or not data_set:
         raise ValueError("None, non-dictionary or empty subjects dictionary")
-    image_size = data_set.values()[0][0].size
-    list_of_matrices = map(lambda image_list: _list_to_matrix(image_list, image_size), data_set.values())
+    image_shape = data_set.values()[0][0].shape
+    list_of_matrices = map(lambda image_list: _list_to_matrix(image_list, image_shape), data_set.values())
 
-    return _list_to_matrix(list_of_matrices, image_size)
+    return _append_matrices(list_of_matrices)
 
 
-def _list_to_matrix(arrays_list, amount_of_columns=None):
-    """ Transforms the given list of ndarrays into a matrix,
-    appending those arrays into the resulting matrix at the bottom (i.e as a new row).
-    Note: All ndarrays must have the same amount of columns.
+def _list_to_matrix(arrays_list, original_shape=None):
+    """ Transforms the given list of ndarrays into a matrix, first transforming each ndarray into a column ndarray
+    (i.e amount of rows as the size of the array),
+    and then appending those resulting arrays into the resulting matrix at the right (i.e as a new column).
+    Note: All ndarrays must have the same shape.
 
     Params:
         arrays_list (list): The list holding the ndarrays.
-        amount_of_columns (int, optional): The amount of columns of each ndarray.
-        If not given, it is calculated from the first ndarray in the list.
     Returns:
-        ndarray: The resulting matrix.
+        matrix: The resulting matrix.
     """
-    if amount_of_columns is not None and not isinstance(amount_of_columns, int):
-        raise ValueError("The image size must be an int")
+    if original_shape is not None and (not isinstance(original_shape, tuple) or not len(original_shape) == 2):
+        raise ValueError("The original shape must be a tuple of two elements")
     if not arrays_list:
         raise ValueError("Can not transform an empty list into a matrix")
-    if amount_of_columns is None:
-        amount_of_columns = arrays_list[0].shape[1]  # We assume that the list is well formed
+    if filter(lambda image_array: type(image_array) != np.ndarray, arrays_list):
+        raise ValueError("There were elements in the list that are not specifically ndarrays")
 
-    matrix = np.zeros([0, amount_of_columns])
+    if original_shape is None:
+        original_shape = arrays_list[0].shape
+
+    amount_of_rows = original_shape[0] * original_shape[1]
+    matrix = np.matrix(np.zeros([amount_of_rows, 0]))
     for array in arrays_list:
-        if array.shape[1] != amount_of_columns:
-            raise ValueError("There were an ndarray with different size")
-        matrix = np.append(matrix, array, axis=0)  # TODO: find a functional way to do this
+        if array.shape != original_shape:
+            raise ValueError("There were an ndarray with different shape")
+        array = np.reshape(array, [amount_of_rows, 1])
+        matrix = np.append(matrix, array, axis=1)  # TODO: find a functional way to do this
 
     return matrix
+
+
+def _append_matrices(matrices_list):
+    """ Appends each matrix in the given matrices_list (each one to the right of the previous matrix)
+     to form a new matrix.
+
+    Params:
+        matrices_list (list): The list of matrices to be appended.
+    Returns:
+        matrix: The resulting matrix.
+    """
+    if not matrices_list:
+        raise ValueError("Can not transform an empty list into a matrix")
+    if filter(lambda image_array: type(image_array) != np.matrix, matrices_list):
+        raise ValueError("There were elements in the list that are not specifically a matrix")
+
+    amount_of_rows = matrices_list[0].shape[0]
+    result = np.matrix(np.zeros([amount_of_rows, 0]))
+    for mat in matrices_list:
+        if mat.shape[0] != amount_of_rows:
+            raise ValueError("There were a matrix with different amount of rows")
+        result = np.append(result, mat, axis=1)  # TODO: find a functional way to do this
+
+    return result
