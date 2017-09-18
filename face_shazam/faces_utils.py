@@ -39,6 +39,9 @@ def process_faces(all_subjects, training_percentage):
     _logger.info("Calculating eigen faces")
     eigen_faces = normalized_matrix * eigen_vectors  # TODO: get only best ones
 
+    _logger.info("Projecting training set in the eigen faces")
+    projected_training_set = eigen_faces.transpose() * normalized_matrix
+
     return
 
 
