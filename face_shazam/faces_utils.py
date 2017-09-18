@@ -20,7 +20,7 @@ def process_faces(all_subjects, training_percentage):
     # TODO complete returns
     _logger.info("Separating data set into training and testing data sets")
     separated_data_set = _separate_data_set(all_subjects, training_percentage)
-    training_set = separated_data_set["train"]
+    training_set = separated_data_set["train"][1]
 
     _logger.info("Normalizing the training data set in matrix representation")
     normalized_matrix = _get_normalized_matrix(training_set)
@@ -72,7 +72,7 @@ def _separate_data_set(all_subjects, training_percentage):
     Returns:
         dict: A dictionary with two keys: train and test.
         For each one, the values is the corresponding data-set splitted according the given training_percentage,
-        in matrix representation
+        in matrix representation, together with a list telling to which subject each column belongs to.
         (i.e each image, which in turn must be represented as an ndarray, is a column in the matrix).
     """
     if all_subjects is None or not isinstance(all_subjects, dict) or not all_subjects:
@@ -101,14 +101,16 @@ def _to_matrix_representation(data_set):
     Params:
         data_set (dict): The dictionary holding the images.
     Returns:
-        matrix: The matrix representation of the data-set.
+        tuple: A tuple holding subjects in each column
+        in the matrix representation in the second element of the tuple.
     """
     if data_set is None or not isinstance(data_set, dict) or not data_set:
         raise ValueError("None, non-dictionary or empty subjects dictionary")
     image_shape = data_set.values()[0][0].shape
-    list_of_matrices = map(lambda image_list: _list_to_matrix(image_list, image_shape), data_set.values())
+    subjects_matrices = map(lambda (subject, image_list): (subject, _list_to_matrix(image_list, image_shape)),
+                            data_set.items())
 
-    return _append_matrices(list_of_matrices)
+    return _append_matrices(subjects_matrices)
 
 
 def _list_to_matrix(arrays_list, original_shape=None):
@@ -143,25 +145,37 @@ def _list_to_matrix(arrays_list, original_shape=None):
     return matrix
 
 
-def _append_matrices(matrices_list):
-    """ Appends each matrix in the given matrices_list (each one to the right of the previous matrix)
-     to form a new matrix.
+def _append_matrices(subjects_matrices):
+    """ Creates a tuple containing two elements where the first one is a dictionary holding subjects
+    together with a list of numbers corresponding to columns in the matrix in the second element in the tuple.
+    Those lists tell which column in the matrix belongs to each subject.
 
     Params:
-        matrices_list (list): The list of matrices to be appended.
+        matrices_list (list): The list of tuples holding a subject and its matrix.
     Returns:
-        matrix: The resulting matrix.
+        tuple: A tuple holding subjects in each column in the matrix in the second element of the tuple.
     """
-    if not matrices_list:
+    # Validate types
+    if not isinstance(subjects_matrices, list):
+        raise ValueError("The subjects matrices must be a list")
+
+    if filter(lambda tup: not isinstance(tup, tuple) or not isinstance(tup[0], str) or type(tup[1]) != np.matrix,
+              subjects_matrices):
+        raise ValueError("The list must contain tuples of two elements "
+                         "where the first one is a string representing the subject "
+                         "and the second one a matrix with the subject's data")
+
+    # Check list is not empty
+    if not subjects_matrices:
         raise ValueError("Can not transform an empty list into a matrix")
-    if filter(lambda image_array: type(image_array) != np.matrix, matrices_list):
-        raise ValueError("There were elements in the list that are not specifically a matrix")
 
-    amount_of_rows = matrices_list[0].shape[0]
-    result = np.matrix(np.zeros([amount_of_rows, 0]))
-    for mat in matrices_list:
-        if mat.shape[0] != amount_of_rows:
+    amount_of_rows = subjects_matrices[0][1].shape[0]
+    result_matrix = np.matrix(np.zeros([amount_of_rows, 0]))
+    subjects = []
+    for tup in subjects_matrices:
+        if tup[1].shape[0] != amount_of_rows:
             raise ValueError("There were a matrix with different amount of rows")
-        result = np.append(result, mat, axis=1)  # TODO: find a functional way to do this
+        subjects += map(lambda each: tup[0], range(0, tup[1].shape[1]))
+        result_matrix = np.append(result_matrix, tup[1], axis=1)
 
-    return result
+    return subjects, result_matrix
