@@ -4,7 +4,7 @@ import logging
 import sys
 
 import image_utils
-import faces_utils
+from pca_recognition import PCARecognizer
 from face_shazam import __version__
 
 _logger = logging.getLogger(__name__)
@@ -96,7 +96,9 @@ def main(args):
         exit(1)
 
     # noinspection PyUnboundLocalVariable
-    faces_utils.process_faces(all_subjects, 0.6)  # If all_subjects is not initialized, exit(1) was executed
+    recognizer = PCARecognizer(all_subjects, 0.6)  # If all_subjects is not initialized, exit(1) was executed
+    recognizer.train(240)
+    print("The score achieved is {}%".format(recognizer.test() * 100))
     return
 
 

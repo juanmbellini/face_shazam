@@ -4,82 +4,104 @@ import logging
 import math
 
 import numpy as np
-import sklearn.svm as svm
+from sklearn.svm import LinearSVC
 
 _logger = logging.getLogger(__name__)
 
 
-def process_faces(all_subjects, training_percentage):
-    """ Processes the given data (i.e all_subjects).
-
-    Params:
-        all_subjects (dict): The dictionary holding each subject's list of images (represented as numpy's ndarray).
-        training_percentage (float): The percentage of training elements.
-    Returns:
+class PCARecognizer:
+    # TODO: complete documentation
+    """
 
     """
-    # TODO complete returns
-    _logger.info("Separating data set into training and testing data sets")
-    separated_data_set = _separate_data_set(all_subjects, training_percentage)
-    training_set = separated_data_set["train"][1]
 
-    _logger.info("Calculating the mean face")
-    mean_face = _get_mean_face(training_set)
+    def __init__(self, data_set, training_percentage):
+        # TODO: validate data
+        # TODO: will this method receive both? Maybe later there are only training pics
 
-    _logger.info("Normalizing the training data set in matrix representation")
-    normalized_matrix = training_set - mean_face
+        # Common values
+        separated_data_set = _separate_data_set(data_set, training_percentage)
+        self._training_set = separated_data_set["train"]
+        self._testing_set = separated_data_set["test"]
+        self._mean_face = np.mean(self._training_set[1], 1)  # Calculates the mean by column
+        self._shape = (112, 92)  # TODO: set shape of images.
 
-    _logger.info("Calculating the reduced covariance matrix")
-    reduced_cov_matrix = normalized_matrix.transpose() * normalized_matrix
+        # Values set after training
+        self._eigen_faces = None
+        self._clf = None
+        self._trained = False
 
-    _logger.info("Calculating eigen values and eigen vectors")
-    eigen_values, eigen_vectors = np.linalg.eig(reduced_cov_matrix)  # TODO: Use own methods to calculate eigens
+    def train(self, eigen_faces_amount):
+        """ Trains this recognizer, using the given eigen_faces_amount.
 
-    _logger.info("Sorting the eigen vectors")
-    sorted_indexes = eigen_values.argsort()[::-1]
-    eigen_values = eigen_values[sorted_indexes]
-    eigen_vectors = eigen_vectors[:, sorted_indexes]
+        Params:
+            eigen_faces_amount (int): The amount of eigen faces to be used.
+        Returns:
+            None
+        """
+        _logger.info("Normalizing the training data set in matrix representation")
+        normalized_matrix = self._training_set[1] - self._mean_face
 
-    _logger.info("Calculating eigen faces")
-    eigen_faces = normalized_matrix * eigen_vectors  # TODO: get only best ones
-    eigen_faces = eigen_faces[:, range(0, 240)]  # TODO: make it a param
+        _logger.info("Calculating the reduced covariance matrix")
+        reduced_cov_matrix = normalized_matrix.transpose() * normalized_matrix
 
-    _logger.info("Projecting training set in the eigen faces")
-    projected_training_set = eigen_faces.transpose() * normalized_matrix
+        _logger.info("Calculating eigen values and eigen vectors")
+        eigen_values, eigen_vectors = np.linalg.eig(reduced_cov_matrix)  # TODO: Use own methods to calculate eigens
 
-    _logger.info("Training AI")
-    clf = svm.LinearSVC()
-    clf.fit(projected_training_set.transpose(), separated_data_set["train"][0])
+        _logger.info("Sorting the eigen vectors")
+        sorted_indexes = eigen_values.argsort()[::-1]
+        eigen_values = eigen_values[sorted_indexes]
+        eigen_vectors = eigen_vectors[:, sorted_indexes]
 
-    _logger.info("Testing AI")
-    normalized_testing_set = separated_data_set["test"][1] - mean_face
-    projected_testing_set = eigen_faces.transpose() * normalized_testing_set
-    test_result = clf.score(projected_testing_set.transpose(), separated_data_set["test"][0])
+        _logger.info("Calculating eigen faces")
+        self._eigen_faces = normalized_matrix * eigen_vectors
+        self._eigen_faces = self._eigen_faces[:, range(0, eigen_faces_amount)]
 
-    print(
-        "The testing gave a {0}% precision result using {1} eigenfaces".format(
-            test_result * 100,
-            eigen_faces.shape[1])
-    )
+        _logger.info("Projecting training set in the eigen faces")
+        projected_training_set = self._eigen_faces.transpose() * normalized_matrix
 
-    return
+        _logger.info("Training AI")
+        self._clf = LinearSVC()
+        self._clf.fit(projected_training_set.transpose(), self._training_set[0])
+        self._trained = True
+
+        return
+
+    def test(self):
+        """ Performs testing over this recognizer training.
+
+        Returns:
+            float: The score achieved by the testing process.
+        """
+        _logger.info("Testing AI")
+        normalized_testing_set = self._testing_set[1] - self._mean_face
+        projected_testing_set = self._eigen_faces.transpose() * normalized_testing_set
+        return self._clf.score(projected_testing_set.transpose(), self._testing_set[0])
+
+    def recognize(self, image):
+        """ Recognizes the given given picture, telling to whom it belongs.
+
+        Params:
+            picture (ndarray): The picture to be recognized.
+            Must be an ndarray with the same shape of the images used to train.
+        Returns:
+            str: The string representation of the subject used to train the recognizer.l
+        """
+        # Validate state
+        if not self._trained:
+            raise ValueError("The recognizer must be trained before using this feature")
+        # Validate types and values
+        if not isinstance(image, np.ndarray):
+            raise ValueError("The image to be recognized must be represented as an ndarray")
+        if not image.shape == self._shape:
+            raise ValueError("Can't recognize an image of different size than the used to train the recognizer")
+
+        _logger.info("Trying to recognize the given picture")
+        features = self._shape[0] * self._shape[1]
+        return self._clf.predict(np.reshape(image, [1, features]))  # TODO: check what this returns
 
 
-def _get_mean_face(training_set):
-    """ Calculates the mean face in the given training_set.
-    Note: Mean calculation is done by column.
-
-    Params:
-        training_set (matrix): The training set in matrix representation.
-    Returns:
-         matrix: The mean face.
-    """
-    if not isinstance(training_set, np.matrix):
-        raise ValueError("Not an ndarray")
-    return np.mean(training_set, 1)  # Calculates the mean by column
-
-
-def _separate_data_set(all_subjects, training_percentage):
+def _separate_data_set(all_subjects, training_percentage):  # TODO: define a container class for this
     """ Separates the given data-set of subject's images into training and testing sets, in matrix representation.
     This methods expects the dictionary is a valid one.
 
