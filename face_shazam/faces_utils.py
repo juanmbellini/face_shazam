@@ -4,6 +4,7 @@ import logging
 import math
 
 import numpy as np
+import sklearn.svm as svm
 
 _logger = logging.getLogger(__name__)
 
@@ -22,8 +23,11 @@ def process_faces(all_subjects, training_percentage):
     separated_data_set = _separate_data_set(all_subjects, training_percentage)
     training_set = separated_data_set["train"][1]
 
+    _logger.info("Calculating the mean face")
+    mean_face = _get_mean_face(training_set)
+
     _logger.info("Normalizing the training data set in matrix representation")
-    normalized_matrix = _get_normalized_matrix(training_set)
+    normalized_matrix = training_set - mean_face
 
     _logger.info("Calculating the reduced covariance matrix")
     reduced_cov_matrix = normalized_matrix.transpose() * normalized_matrix
@@ -38,27 +42,41 @@ def process_faces(all_subjects, training_percentage):
 
     _logger.info("Calculating eigen faces")
     eigen_faces = normalized_matrix * eigen_vectors  # TODO: get only best ones
+    eigen_faces = eigen_faces[:, range(0, 240)]  # TODO: make it a param
 
     _logger.info("Projecting training set in the eigen faces")
     projected_training_set = eigen_faces.transpose() * normalized_matrix
 
+    _logger.info("Training AI")
+    clf = svm.LinearSVC()
+    clf.fit(projected_training_set.transpose(), separated_data_set["train"][0])
+
+    _logger.info("Testing AI")
+    normalized_testing_set = separated_data_set["test"][1] - mean_face
+    projected_testing_set = eigen_faces.transpose() * normalized_testing_set
+    test_result = clf.score(projected_testing_set.transpose(), separated_data_set["test"][0])
+
+    print(
+        "The testing gave a {0}% precision result using {1} eigenfaces".format(
+            test_result * 100,
+            eigen_faces.shape[1])
+    )
+
     return
 
 
-def _get_normalized_matrix(training_set):
-    """ Returns the resultant matrix of subtracting the mean by column
-    to each column in the given training_set (in matrix representation).
+def _get_mean_face(training_set):
+    """ Calculates the mean face in the given training_set.
+    Note: Mean calculation is done by column.
 
     Params:
         training_set (matrix): The training set in matrix representation.
     Returns:
-         matrix: The resulting matrix.
+         matrix: The mean face.
     """
     if not isinstance(training_set, np.matrix):
         raise ValueError("Not an ndarray")
-    mean_face = np.mean(training_set, 1)  # Calculates the mean by column
-
-    return training_set - mean_face
+    return np.mean(training_set, 1)  # Calculates the mean by column
 
 
 def _separate_data_set(all_subjects, training_percentage):
