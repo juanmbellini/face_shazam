@@ -10,20 +10,23 @@ _logger = logging.getLogger(__name__)
 
 
 class PCARecognizer:
-    # TODO: complete documentation
-    """
-
+    """ Class representing an face recognizer using PCA.
     """
 
     def __init__(self, data_set, training_percentage):
+        """ Constructor.
+        Params:
+            data_set (dict): The dictionary holding each subject's list of images (represented as ndarrays).
+            training_percentage (float): The percentage of training elements.
+        """
         # TODO: validate data
         # TODO: will this method receive both? Maybe later there are only training pics
 
         # Common values
-        separated_data_set = _separate_data_set(data_set, training_percentage)
-        self._training_set = separated_data_set["train"]
-        self._testing_set = separated_data_set["test"]
-        self._mean_face = np.mean(self._training_set[1], 1)  # Calculates the mean by column
+        separated_data_set_container = self._SeparatedDataSetContainer(data_set, training_percentage)
+        self._training_set = separated_data_set_container.training_set
+        self._testing_set = separated_data_set_container.testing_set
+        self._mean_face = np.mean(self._training_set.data, 1)  # Calculates the mean by column
         self._shape = (112, 92)  # TODO: set shape of images.
 
         # Values set after training
@@ -40,7 +43,7 @@ class PCARecognizer:
             None
         """
         _logger.info("Normalizing the training data set in matrix representation")
-        normalized_matrix = self._training_set[1] - self._mean_face
+        normalized_matrix = self._training_set.data - self._mean_face
 
         _logger.info("Calculating the reduced covariance matrix")
         reduced_cov_matrix = normalized_matrix.transpose() * normalized_matrix
@@ -62,7 +65,7 @@ class PCARecognizer:
 
         _logger.info("Training AI")
         self._clf = LinearSVC()
-        self._clf.fit(projected_training_set.transpose(), self._training_set[0])
+        self._clf.fit(projected_training_set.transpose(), self._training_set.subjects)
         self._trained = True
 
         return
@@ -74,9 +77,9 @@ class PCARecognizer:
             float: The score achieved by the testing process.
         """
         _logger.info("Testing AI")
-        normalized_testing_set = self._testing_set[1] - self._mean_face
+        normalized_testing_set = self._testing_set.data - self._mean_face
         projected_testing_set = self._eigen_faces.transpose() * normalized_testing_set
-        return self._clf.score(projected_testing_set.transpose(), self._testing_set[0])
+        return self._clf.score(projected_testing_set.transpose(), self._testing_set.subjects)
 
     def recognize(self, image):
         """ Recognizes the given given picture, telling to whom it belongs.
@@ -100,122 +103,186 @@ class PCARecognizer:
         features = self._shape[0] * self._shape[1]
         return self._clf.predict(np.reshape(image, [1, features]))  # TODO: check what this returns
 
+    class _SeparatedDataSetContainer:
+        """ Class that wraps a training data set container and a testing data set container.
+        """
 
-def _separate_data_set(all_subjects, training_percentage):  # TODO: define a container class for this
-    """ Separates the given data-set of subject's images into training and testing sets, in matrix representation.
-    This methods expects the dictionary is a valid one.
+        def __init__(self, data_set, training_percentage):
+            """ Constructor.
 
-    Params:
-        all_subjects (dict): The dictionary holding each subject's list of images (represented as numpy's ndarray).
-        training_percentage (float): The percentage of training elements.
-        training_percentage (float): The percentage of training elements.
-    Returns:
-        dict: A dictionary with two keys: train and test.
-        For each one, the values is the corresponding data-set splitted according the given training_percentage,
-        in matrix representation, together with a list telling to which subject each column belongs to.
-        (i.e each image, which in turn must be represented as an ndarray, is a column in the matrix).
-    """
-    if all_subjects is None or not isinstance(all_subjects, dict) or not all_subjects:
-        raise ValueError("None, non-dictionary or empty subjects dictionary")
+            Params:
+                data_set (dict): The dictionary holding each subject's list of images (represented as ndarrays).
+                training_percentage (float): The percentage of training elements.
+            """
+            self._training_set, self._testing_set = self._separate_data_set(data_set, training_percentage)
 
-    # We assume data is well formed
-    total_per_subject = len(all_subjects.values()[0])
-    training_per_subject = int(math.ceil(total_per_subject * training_percentage))
-    training_data = dict(itertools.izip(all_subjects.keys(),
-                                        map(lambda image_list: image_list[0:training_per_subject],
-                                            all_subjects.values())))
-    testing_data = dict(itertools.izip(all_subjects.keys(),
-                                       map(lambda image_list: image_list[training_per_subject:total_per_subject],
-                                           all_subjects.values())))
+        @property
+        def training_set(self):
+            """
+            Returns:
+                DataSetContainer: The data set container with training data.
 
-    return {
-        "train": _to_matrix_representation(training_data),
-        "test": _to_matrix_representation(testing_data)
-    }
+            """
+            return self._training_set
 
+        @property
+        def testing_set(self):
+            """
+            Returns:
+                 DataSetContainer: The data set container with testing data.
+            """
+            return self._testing_set
 
-def _to_matrix_representation(data_set):
-    """ Transforms the given data set (i.e a dictionary with subject's images, represented as ndarrays) into a matrix,
-    where each row is one image in the data set.
+        @classmethod
+        def _separate_data_set(cls, all_subjects, training_percentage):  # TODO: define a container class for this
+            """ Separates the given data-set of subject's images into training and testing sets,
+            in a tuple of data set containers.
 
-    Params:
-        data_set (dict): The dictionary holding the images.
-    Returns:
-        tuple: A tuple holding subjects in each column
-        in the matrix representation in the second element of the tuple.
-    """
-    if data_set is None or not isinstance(data_set, dict) or not data_set:
-        raise ValueError("None, non-dictionary or empty subjects dictionary")
-    image_shape = data_set.values()[0][0].shape
-    subjects_matrices = map(lambda (subject, image_list): (subject, _list_to_matrix(image_list, image_shape)),
-                            data_set.items())
+            Params:
+                all_subjects (dict): The dictionary holding each subject's list of images (represented as ndarrays).
+                training_percentage (float): The percentage of training elements.
+            Returns:
+                tuple: A tuple of two elements, holding the training data set container in the first one,
+                and the testing data set in the second one.
+            """
+            # TODO: validate better
+            if all_subjects is None or not isinstance(all_subjects, dict) or not all_subjects:
+                raise ValueError("None, non-dictionary or empty subjects dictionary")
 
-    return _append_matrices(subjects_matrices)
+            total_per_subject = len(all_subjects.values()[0])  # We assume data is well formed
+            training_per_subject = int(math.ceil(total_per_subject * training_percentage))
+            training_data = dict(itertools.izip(all_subjects.keys(),
+                                                map(lambda image_list: image_list[0:training_per_subject],
+                                                    all_subjects.values())))
+            testing_data = dict(itertools.izip(all_subjects.keys(),
+                                               map(lambda image_list: image_list[
+                                                                      training_per_subject:total_per_subject],
+                                                   all_subjects.values())))
 
+            return cls.DataSetContainer(training_data), cls.DataSetContainer(testing_data)
 
-def _list_to_matrix(arrays_list, original_shape=None):
-    """ Transforms the given list of ndarrays into a matrix, first transforming each ndarray into a column ndarray
-    (i.e amount of rows as the size of the array),
-    and then appending those resulting arrays into the resulting matrix at the right (i.e as a new column).
-    Note: All ndarrays must have the same shape.
+        class DataSetContainer:
+            """ Class that wraps the matrix representation of data (i.e images), together with a list of subjects.
+            The list of subjects holds a representation of them in the same order as the data in the matrix.
+            For example, if the first column of the matrix represents an image of "subject 1",
+            the first element in the subjects list would be the representation of subject 1.
+            Another example, if the n-th column in the matrix represents an image of "subject m",
+            the n-th elements in the subjects list would be the representation of subject m.
+            Note that a subject can be contained several times in the list, as more than one column in the matrix
+            could represent an image of the said subject.
+            """
 
-    Params:
-        arrays_list (list): The list holding the ndarrays.
-    Returns:
-        matrix: The resulting matrix.
-    """
-    if original_shape is not None and (not isinstance(original_shape, tuple) or not len(original_shape) == 2):
-        raise ValueError("The original shape must be a tuple of two elements")
-    if not arrays_list:
-        raise ValueError("Can not transform an empty list into a matrix")
-    if filter(lambda image_array: type(image_array) != np.ndarray, arrays_list):
-        raise ValueError("There were elements in the list that are not specifically ndarrays")
+            def __init__(self, data_set):
+                """ Constructor.
 
-    if original_shape is None:
-        original_shape = arrays_list[0].shape
+                Params:
+                    data_set (dict): The dictionary holding the subjects and their images.
+                """
+                self._subjects, self._data = self._to_matrix_representation(data_set)
 
-    amount_of_rows = original_shape[0] * original_shape[1]
-    matrix = np.matrix(np.zeros([amount_of_rows, 0]))
-    for array in arrays_list:
-        if array.shape != original_shape:
-            raise ValueError("There were an ndarray with different shape")
-        array = np.reshape(array, [amount_of_rows, 1])
-        matrix = np.append(matrix, array, axis=1)  # TODO: find a functional way to do this
+            @property
+            def subjects(self):
+                """
+                Returns:
+                     list: A list of subject's representations.
+                """
+                return self._subjects
 
-    return matrix
+            @property
+            def data(self):
+                """
+                Returns:
+                    matrix: The matrix representation of data.
+                """
+                return self._data
 
+            @classmethod
+            def _to_matrix_representation(cls, data_set):
+                """ Transforms the given data set (i.e a dictionary with subject's images, represented as ndarrays)
+                into a matrix, where each row is one image in the data set.
 
-def _append_matrices(subjects_matrices):
-    """ Creates a tuple containing two elements where the first one is a dictionary holding subjects
-    together with a list of numbers corresponding to columns in the matrix in the second element in the tuple.
-    Those lists tell which column in the matrix belongs to each subject.
+                Params:
+                    data_set (dict): The dictionary holding the images.
+                Returns:
+                    tuple: A tuple holding subjects in each column
+                    in the matrix representation in the second element of the tuple.
+                """
+                if data_set is None or not isinstance(data_set, dict) or not data_set:
+                    raise ValueError("None, non-dictionary or empty subjects dictionary")
+                image_shape = data_set.values()[0][0].shape
 
-    Params:
-        matrices_list (list): The list of tuples holding a subject and its matrix.
-    Returns:
-        tuple: A tuple holding subjects in each column in the matrix in the second element of the tuple.
-    """
-    # Validate types
-    if not isinstance(subjects_matrices, list):
-        raise ValueError("The subjects matrices must be a list")
+                subjects_matrices = map(lambda (subject, image_list):
+                                        (subject, cls._list_to_matrix(image_list, image_shape)), data_set.items())
 
-    if filter(lambda tup: not isinstance(tup, tuple) or not isinstance(tup[0], str) or type(tup[1]) != np.matrix,
-              subjects_matrices):
-        raise ValueError("The list must contain tuples of two elements "
-                         "where the first one is a string representing the subject "
-                         "and the second one a matrix with the subject's data")
+                return cls._append_matrices(subjects_matrices)
 
-    # Check list is not empty
-    if not subjects_matrices:
-        raise ValueError("Can not transform an empty list into a matrix")
+            @staticmethod
+            def _list_to_matrix(arrays_list, original_shape=None):
+                """ Transforms the given list of ndarrays into a matrix,
+                first transforming each ndarray into a column ndarray (i.e amount of rows as the size of the array),
+                and then appending those resulting arrays into the resulting matrix at the right (i.e as a new column).
+                Note: All ndarrays must have the same shape.
 
-    amount_of_rows = subjects_matrices[0][1].shape[0]
-    result_matrix = np.matrix(np.zeros([amount_of_rows, 0]))
-    subjects = []
-    for tup in subjects_matrices:
-        if tup[1].shape[0] != amount_of_rows:
-            raise ValueError("There were a matrix with different amount of rows")
-        subjects += map(lambda each: tup[0], range(0, tup[1].shape[1]))
-        result_matrix = np.append(result_matrix, tup[1], axis=1)
+                Params:
+                    arrays_list (list): The list holding the ndarrays.
+                Returns:
+                    matrix: The resulting matrix.
+                """
+                if original_shape is not None \
+                        and (not isinstance(original_shape, tuple) or not len(original_shape) == 2):
+                    raise ValueError("The original shape must be a tuple of two elements")
+                if not arrays_list:
+                    raise ValueError("Can not transform an empty list into a matrix")
+                if filter(lambda image_array: type(image_array) != np.ndarray, arrays_list):
+                    raise ValueError("There were elements in the list that are not specifically ndarrays")
 
-    return subjects, result_matrix
+                if original_shape is None:
+                    original_shape = arrays_list[0].shape
+
+                amount_of_rows = original_shape[0] * original_shape[1]
+                matrix = np.matrix(np.zeros([amount_of_rows, 0]))
+                for array in arrays_list:
+                    if array.shape != original_shape:
+                        raise ValueError("There were an ndarray with different shape")
+                    array = np.reshape(array, [amount_of_rows, 1])
+                    matrix = np.append(matrix, array, axis=1)  # TODO: find a functional way to do this
+
+                return matrix
+
+            @staticmethod
+            def _append_matrices(subjects_matrices):
+                """ Creates a tuple containing two elements where the first one is a dictionary holding subjects
+                together with a list of numbers corresponding to columns in the matrix
+                in the second element in the tuple.
+                Those lists tell which column in the matrix belongs to each subject.
+
+                Params:
+                    matrices_list (list): The list of tuples holding a subject and its matrix.
+                Returns:
+                    tuple: A tuple holding subjects in each column in the matrix in the second element of the tuple.
+                """
+                # Validate types
+                if not isinstance(subjects_matrices, list):
+                    raise ValueError("The subjects matrices must be a list")
+
+                if filter(lambda t: not isinstance(t, tuple) or not isinstance(t[0], str) or type(t[1]) != np.matrix,
+                          subjects_matrices):
+                    raise ValueError("The list must contain tuples of two elements "
+                                     "where the first one is a string representing the subject "
+                                     "and the second one a matrix with the subject's data")
+
+                # Check list is not empty
+                if not subjects_matrices:
+                    raise ValueError("Can not transform an empty list into a matrix")
+
+                amount_of_rows = subjects_matrices[0][1].shape[0]
+                result_matrix = np.matrix(np.zeros([amount_of_rows, 0]))
+                subjects = []
+                for tup in subjects_matrices:
+                    if tup[1].shape[0] != amount_of_rows:
+                        raise ValueError("There were a matrix with different amount of rows")
+                    # subjects += map(lambda each: tup[0], range(0, tup[1].shape[1]))
+                    subjects += [tup[0]] * tup[1].shape[1]
+                    result_matrix = np.append(result_matrix, tup[1], axis=1)
+
+                return subjects, result_matrix
