@@ -19,15 +19,33 @@ class PCARecognizer:
             data_set (dict): The dictionary holding each subject's list of images (represented as ndarrays).
             training_percentage (float): The percentage of training elements.
         """
-        # TODO: validate data
-        # TODO: will this method receive both? Maybe later there are only training pics
+        # TODO: will the recognizer receive training and testing data? or just training?
+        # Validate data set
+        if data_set is None or not isinstance(data_set, dict) or not data_set:
+            raise ValueError("None, non-dictionary or empty subjects dictionary")
+        if filter(lambda subject: not isinstance(subject, str), data_set.keys()):
+            raise ValueError("The subjects must be represented as strings")
+        if filter(lambda images: not isinstance(images, list) or filter(lambda elem: not isinstance(elem, np.ndarray),
+                                                                        images), data_set.values()):
+            raise ValueError("Each subject must have a list of ndarrays attached to it")
+        images_per_subject = len(data_set.values()[0])
+        if images_per_subject <= 0:
+            raise ValueError("The data set must contain elements")
+        images_shape = data_set.values()[0][0].shape
+        if filter(lambda images: len(images) != images_per_subject or filter(lambda image: image.shape != images_shape,
+                                                                             images), data_set.values()):
+            raise ValueError("All subjects must have the same amount of images")
+        # Validate training percentage
+        if training_percentage is None or not isinstance(training_percentage, float) \
+                or training_percentage <= 0.0 or training_percentage > 1.0:
+            raise ValueError("None or out of range training percentage. Must be a float between 0 and 1")
 
         # Common values
         separated_data_set_container = self._SeparatedDataSetContainer(data_set, training_percentage)
         self._training_set = separated_data_set_container.training_set
         self._testing_set = separated_data_set_container.testing_set
         self._mean_face = np.mean(self._training_set.data, 1)  # Calculates the mean by column
-        self._shape = (112, 92)  # TODO: set shape of images.
+        self._shape = images_shape
 
         # Values set after training
         self._eigen_faces = None
@@ -134,7 +152,7 @@ class PCARecognizer:
             return self._testing_set
 
         @classmethod
-        def _separate_data_set(cls, all_subjects, training_percentage):  # TODO: define a container class for this
+        def _separate_data_set(cls, all_subjects, training_percentage):
             """ Separates the given data-set of subject's images into training and testing sets,
             in a tuple of data set containers.
 
@@ -145,10 +163,7 @@ class PCARecognizer:
                 tuple: A tuple of two elements, holding the training data set container in the first one,
                 and the testing data set in the second one.
             """
-            # TODO: validate better
-            if all_subjects is None or not isinstance(all_subjects, dict) or not all_subjects:
-                raise ValueError("None, non-dictionary or empty subjects dictionary")
-
+            # Arguments are already validated before (this is an inner class method called from constructor only)
             total_per_subject = len(all_subjects.values()[0])  # We assume data is well formed
             training_per_subject = int(math.ceil(total_per_subject * training_percentage))
             training_data = dict(itertools.izip(all_subjects.keys(),
@@ -209,10 +224,23 @@ class PCARecognizer:
                 """
                 if data_set is None or not isinstance(data_set, dict) or not data_set:
                     raise ValueError("None, non-dictionary or empty subjects dictionary")
-                image_shape = data_set.values()[0][0].shape
+                if filter(lambda subject: not isinstance(subject, str), data_set.keys()):
+                    raise ValueError("The subjects must be represented as strings")
+                if filter(lambda images: not isinstance(images, list) or filter(
+                        lambda elem: not isinstance(elem, np.ndarray),
+                        images), data_set.values()):
+                    raise ValueError("Each subject must have a list of ndarrays attached to it")
+                images_per_subject = len(data_set.values()[0])
+                if images_per_subject <= 0:
+                    raise ValueError("The data set must contain elements")
+                images_shape = data_set.values()[0][0].shape
+                if filter(lambda images: len(images) != images_per_subject or filter(
+                        lambda image: image.shape != images_shape,
+                        images), data_set.values()):
+                    raise ValueError("All subjects must have the same amount of images")
 
                 subjects_matrices = map(lambda (subject, image_list):
-                                        (subject, cls._list_to_matrix(image_list, image_shape)), data_set.items())
+                                        (subject, cls._list_to_matrix(image_list, images_shape)), data_set.items())
 
                 return cls._append_matrices(subjects_matrices)
 
