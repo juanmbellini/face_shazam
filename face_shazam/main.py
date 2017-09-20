@@ -50,7 +50,8 @@ def parse_args(args):
         help="Set the path where the subjects images are. "
              "This path must contain subdirectories where each one has the images of a given subject.",
         default="./subjects",
-        action="store"
+        action="store",
+        type=str
     )
     parser.add_argument(
         "-ext",
@@ -58,7 +59,19 @@ def parse_args(args):
         dest="image_extension",
         help="Set the file extension to be used for images.",
         default="pgm",
-        action="store"
+        action="store",
+        type=str
+    )
+
+    # Training arguments
+    parser.add_argument(
+        "-tp",
+        "--training-percentage",
+        dest="training_percentage",
+        help="Set the percentage of training data per subject.",
+        default="0.7",
+        action="store",
+        type=float
     )
 
     return parser.parse_args(args)
@@ -96,7 +109,8 @@ def main(args):
         exit(1)
 
     # noinspection PyUnboundLocalVariable
-    recognizer = PCARecognizer(all_subjects, 0.6)  # If all_subjects is not initialized, exit(1) was executed
+    # If all_subjects is not initialized, exit(1) was executed
+    recognizer = PCARecognizer(all_subjects, args.training_percentage)
     recognizer.train(240)
     print("The score achieved is {}%".format(recognizer.test() * 100))
     return
