@@ -4,6 +4,7 @@ import logging
 import sys
 
 import image_utils
+from pca_recognition import PCARecognizer
 from face_shazam import __version__
 
 _logger = logging.getLogger(__name__)
@@ -49,7 +50,8 @@ def parse_args(args):
         help="Set the path where the subjects images are. "
              "This path must contain subdirectories where each one has the images of a given subject.",
         default="./subjects",
-        action="store"
+        action="store",
+        type=str
     )
     parser.add_argument(
         "-ext",
@@ -57,7 +59,28 @@ def parse_args(args):
         dest="image_extension",
         help="Set the file extension to be used for images.",
         default="pgm",
-        action="store"
+        action="store",
+        type=str
+    )
+
+    # Training arguments
+    parser.add_argument(
+        "-tp",
+        "--training-percentage",
+        dest="training_percentage",
+        help="Set the percentage of training data per subject.",
+        default=0.6,
+        action="store",
+        type=float
+    )
+    parser.add_argument(
+        "-efp",
+        "--eigen-faces-percentage",
+        dest="eigen_faces_percentage",
+        help="Set the percentage of eigen faces to be used by the recognizer training process.",
+        default=None,
+        action="store",
+        type=float
     )
 
     return parser.parse_args(args)
@@ -89,8 +112,16 @@ def main(args):
         all_subjects = image_utils.get_subjects_dictionary(args.path_to_subjects, args.image_extension)
     except ValueError as e:
         _logger.error("There were validation errors with the images. Exception message: {}".format(e))
+        exit(1)
     except IOError as e:
         _logger.error("There were IO errors while loading the images. Exception message: {}".format(e))
+        exit(1)
+
+    # noinspection PyUnboundLocalVariable
+    # If all_subjects is not initialized, exit(1) was executed
+    recognizer = PCARecognizer(all_subjects, args.training_percentage)
+    recognizer.train(args.eigen_faces_percentage)
+    print("The score achieved is {}%".format(recognizer.test() * 100))
     return
 
 

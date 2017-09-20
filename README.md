@@ -9,7 +9,7 @@ These instructions will install the development environment into your local mach
 	```
 	$ git clone https://github.com/juanmbellini/face_shazam.git
 	```
-2. Install Python and Python Package Index (pip)
+2. Install Python and pip
 	#### MacOS
 	A. Install packages
 	```
@@ -97,6 +97,44 @@ To use **Very Verbose** logging, add the ```-vv``` or ```--very-verbose``` argum
 ```
 $ face_shazam -vv
 ```
+
+### Setting path of subjects images
+To set the path where the subjects images are, use the ```-tp``` or ```--subjects-path``` arguments. For example:
+```
+$ face_shazam -s ~/subjects
+```
+The default value is the directory ```./subjects/```.
+
+### Setting images extension
+To set the image extension, use the ```-ext``` or ```--image-extension``` arguments, including the extension
+(without the dot). For example:
+```
+$ face_shazam -s ~/subjects -ext bpm
+```
+
+### Setting training percentage
+To set the training percentage, use the ```-tp``` or ```--training-percentage``` arguments,
+including the percentage to use. It must be a value between 0 (exclusive) and 1 (inclusive).
+The training percentage indicates how many pictures (in percentage) will be used from each subject.
+For example:
+```
+$ face_shazam -s ~/subjects -ext bpm -tp 0.6  # Will use only 6 images if the subject has 10
+```
+The default value is ```0.6```.
+
+### Setting eigen faces percentage
+To set the eigen faces percentage, use the ```-efp``` or ```--eigen-faces-percentage``` arguments,
+including the percentage to use. It must be a value between 0 (exclusive) and 1 (inclusive).
+The eigen faces percentage indicates how many eigen faces (in percentage of total sum of eigen values) 
+will be used in the training process of the recognizer. Note that before truncating the list, 
+the eigen vectors used to calculate the eigen faces are sorted according to their associated eigen value 
+(being first in the list those with a bigger eigen value).
+For example:
+```
+$ face_shazam -s ~/subjects -ext bpm -efp 0.995
+```
+The default value is ```None``` (all eigen faces will be used).
+
 
 ## Authors
 * [Juan Marcos Bellini](https://github.com/juanmbellini)
