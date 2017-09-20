@@ -117,9 +117,13 @@ class PCARecognizer:
         if not image.shape == self._shape:
             raise ValueError("Can't recognize an image of different size than the used to train the recognizer")
 
-        _logger.info("Trying to recognize the given picture")
+        _logger.info("Normalizing the image")
         features = self._shape[0] * self._shape[1]
-        return self._clf.predict(np.reshape(image, [1, features]))  # TODO: check what this returns
+        normalized_image = np.matrix(np.reshape(image, [features, 1])) - self._mean_face
+        _logger.info("Projecting the image in the eigen faces")
+        projected_image = self._eigen_faces.transpose() * normalized_image
+        _logger.info("Trying to recognize the given image")
+        return self._clf.predict(projected_image.transpose())  # TODO: check what this returns
 
     class _SeparatedDataSetContainer:
         """ Class that wraps a training data set container and a testing data set container.
