@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import functools
 import itertools
 import logging
 import math
@@ -37,8 +38,8 @@ class PCARecognizer:
             raise ValueError("All subjects must have the same amount of images")
         # Validate training percentage
         if training_percentage is None or not isinstance(training_percentage, float) \
-                or training_percentage <= 0.0 or training_percentage > 1.0:
-            raise ValueError("None or out of range training percentage. Must be a float between 0 and 1")
+                or not (0 < training_percentage <= 1.0):
+            raise ValueError("None, not float, or out of range training percentage. Must be a float between 0 and 1")
 
         # Common values
         separated_data_set_container = self._SeparatedDataSetContainer(data_set, training_percentage)
@@ -52,14 +53,19 @@ class PCARecognizer:
         self._clf = None
         self._trained = False
 
-    def train(self, eigen_faces_amount):
+    def train(self, eigen_faces_percentage=None):
         """ Trains this recognizer, using the given eigen_faces_amount.
 
         Params:
             eigen_faces_amount (int): The amount of eigen faces to be used.
+            eigen_faces_percentage (float): The percentage of eigen faces to be used in the training process.
         Returns:
             None
         """
+        if eigen_faces_percentage is not None \
+                and (not isinstance(eigen_faces_percentage, float) or not (0 < eigen_faces_percentage <= 1.0)):
+            raise ValueError("None float, or out of range eigen faces percentage. Must be a float between 0 and 1")
+
         _logger.info("Normalizing the training data set in matrix representation")
         normalized_matrix = self._training_set.data - self._mean_face
 
@@ -74,11 +80,28 @@ class PCARecognizer:
         eigen_values = eigen_values[sorted_indexes]
         eigen_vectors = eigen_vectors[:, sorted_indexes]
 
+        # If percentage was set, get only those eigen vectors needed
+        if eigen_faces_percentage is not None:
+            _logger.info("Calculating total sum amount of eigen vectors needed")
+            # Calculate total sum of eigen values
+            eigen_values_sum = functools.reduce(lambda eigen1, eigen2: eigen1 + eigen2, eigen_values, 0.0)
+            needed_sum = eigen_values_sum * eigen_faces_percentage
+            # Calculate how many eigen vectors are needed to achieve the sum
+            index_limit = 0
+            actual_sum = 0.0
+            while actual_sum < needed_sum:
+                actual_sum += eigen_values[index_limit]
+                index_limit += 1
+            _logger.debug("{0} eigen vectors are needed to achieve an {1}% of the total sum"
+                          .format(index_limit + 1, eigen_faces_percentage * 100))
+            # Set results in eigen values list and eigen vectors matrix
+            eigen_values = eigen_values[0:index_limit + 1]
+            eigen_vectors = eigen_vectors[:, 0:index_limit + 1]
+
         _logger.info("Calculating eigen faces")
         self._eigen_faces = normalized_matrix * eigen_vectors
-        self._eigen_faces = self._eigen_faces[:, range(0, eigen_faces_amount)]
 
-        _logger.info("Projecting training set in the eigen faces")
+        _logger.info("Projecting training set in {} eigen faces".format(self._eigen_faces.shape[1]))
         projected_training_set = self._eigen_faces.transpose() * normalized_matrix
 
         _logger.info("Training AI")

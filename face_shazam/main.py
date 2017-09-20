@@ -69,7 +69,16 @@ def parse_args(args):
         "--training-percentage",
         dest="training_percentage",
         help="Set the percentage of training data per subject.",
-        default="0.7",
+        default=0.6,
+        action="store",
+        type=float
+    )
+    parser.add_argument(
+        "-efp",
+        "--eigen-faces-percentage",
+        dest="eigen_faces_percentage",
+        help="Set the percentage of eigen faces to be used by the recognizer training process.",
+        default=None,
         action="store",
         type=float
     )
@@ -111,7 +120,7 @@ def main(args):
     # noinspection PyUnboundLocalVariable
     # If all_subjects is not initialized, exit(1) was executed
     recognizer = PCARecognizer(all_subjects, args.training_percentage)
-    recognizer.train(240)
+    recognizer.train(args.eigen_faces_percentage)
     print("The score achieved is {}%".format(recognizer.test() * 100))
     return
 

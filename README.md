@@ -120,7 +120,20 @@ For example:
 ```
 $ face_shazam -s ~/subjects -ext bpm -tp 0.6  # Will use only 6 images if the subject has 10
 ```
+The default value is 0.6
 
+### Setting eigen faces percentage
+To set the eigen faces percentage, use the ```-efp``` or ```--eigen-faces-percentage``` arguments,
+including the percentage to use. It must be a value between 0 (exclusive) and 1 (inclusive).
+The eigen faces percentage indicates how many eigen faces (in percentage of total sum of eigen values) 
+will be used in the training process of the recognizer. Note that before truncating the list, 
+the eigen vectors used to calculate the eigen faces are sorted according to their associated eigen value 
+(being first in the list those with a bigger eigen value).
+For example:
+```
+$ face_shazam -s ~/subjects -ext bpm -efp 0.995
+```
+The default value is None (all eigen faces will be used).
 
 
 ## Authors
