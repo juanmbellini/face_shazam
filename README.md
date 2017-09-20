@@ -120,7 +120,7 @@ For example:
 ```
 $ face_shazam -s ~/subjects -ext bpm -tp 0.6  # Will use only 6 images if the subject has 10
 ```
-The default value is 0.6
+The default value is ```0.6```.
 
 ### Setting eigen faces percentage
 To set the eigen faces percentage, use the ```-efp``` or ```--eigen-faces-percentage``` arguments,
@@ -133,7 +133,7 @@ For example:
 ```
 $ face_shazam -s ~/subjects -ext bpm -efp 0.995
 ```
-The default value is None (all eigen faces will be used).
+The default value is ```None``` (all eigen faces will be used).
 
 
 ## Authors
