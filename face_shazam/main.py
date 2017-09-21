@@ -119,8 +119,8 @@ def main(args):
 
     # noinspection PyUnboundLocalVariable
     # If all_subjects is not initialized, exit(1) was executed
-    recognizer = PCARecognizer(all_subjects, args.training_percentage)
-    recognizer.train(args.eigen_faces_percentage)
+    recognizer = PCARecognizer(all_subjects, args.training_percentage, args.eigen_faces_percentage)
+    recognizer.train()
     print("The score achieved is {}%".format(recognizer.test() * 100))
     return
 
