@@ -4,7 +4,6 @@ import logging
 import sys
 
 import image_utils
-import eig_utils
 from face_shazam import __version__
 
 _logger = logging.getLogger(__name__)
@@ -98,8 +97,7 @@ def main(args):
 def run():
     """Entry point for console_scripts
     """
-    eig_utils.test()
-    # main(sys.argv[1:])
+    main(sys.argv[1:])
 
 
 if __name__ == "__main__":
