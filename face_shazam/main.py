@@ -4,7 +4,7 @@ import logging
 import sys
 
 import image_utils
-from pca_recognition import PCARecognizer
+from face_recognition import PCARecognizer
 from face_shazam import __version__
 
 _logger = logging.getLogger(__name__)
