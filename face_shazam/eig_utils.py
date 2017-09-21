@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+
 """ Eigenvalues and eigenvectors utilities module.
 This module is in charge of providing utilities for calculation eigenvalues and eigenvectors.
 
@@ -7,7 +8,11 @@ This module is in charge of providing utilities for calculation eigenvalues and 
 import numpy as np
 
 
-def _qr(matrix):
+def _is_symmetric(a, tol=1e-4):
+    return np.allclose(a, a.T, atol=tol)
+
+
+def _householder(matrix):
     m, n = matrix.shape
     q = np.identity(m)
     r = matrix.copy()
@@ -24,50 +29,33 @@ def _qr(matrix):
     return q, r
 
 
-def _eig(matrix):
-    a = matrix.copy()
-    n = a.shape[0]
+def _symmetric_eig(matrix, iterations=50, tolerance=1e-4):
+    a = np.matrix(matrix, dtype=np.float64)
 
-    for i in range(100):
-        q, r = _qr(a)
+    q, r = _householder(a)
+    a = np.matmul(r, q)
+    s = q
+
+    for i in range(iterations):
+        q, r = _householder(a)
         a = np.matmul(r, q)
+        s = np.matmul(s, q)
+        if np.allclose(a, np.diagflat(np.diag(a)), atol=tolerance):
+            break
 
-    eigenvalues = []
-
-    i = 0
-    while i < n:
-        m = a[i:i+2, i:i+2]
-        w = m[0, 0]
-        if m.shape == (1, 1):
-            eigenvalues.append(w)
-            i = i + 1
-        else:
-            x, y, z = m[0, 1], m[1, 0], m[1, 1]
-            eigv = np.roots([1, -(w+z), (w*z) - (y*x)])
-            if isinstance(eigv[0], complex):
-                eigenvalues.append(eigv[0])
-                eigenvalues.append(eigv[1])
-                i = i + 2
-            else:
-                eigenvalues.append(eigv[0])
-                i = i + 1
-
-    return eigenvalues
+    eigenvalues = np.diag(a)
+    return s, eigenvalues
 
 
-def test():
-    np.set_printoptions(formatter={'float': lambda x: "{0:0.4f}".format(x)})
-    #a = np.matrix([[-1., 2., 3.], [4., 5., 6.], [7., 8., 9.]])
-    # a = np.matrix(np.random.random_sample((240, 240)) * 255)
-    # a = np.matrix([[3., -9.], [4., -3.]])
-    # e = _eig(a)
-    # pr(e)
-    # e, v = np.linalg.eig(a)
-    # pr(e)
+def s_eig(matrix):
+    """ Calculates eigenvectors and eigenvalues for a symmetric matrix.
+            Params:
+                matrix (np.matrix): The symmetric matrix.
+            Returns:
+                v (np.ndarray): A matrix which each column is an eigenvector.
+                e (np.ndarray): A list of eigenvalues.
+            """
+    if _is_symmetric(matrix):
+        return _symmetric_eig(matrix)
 
-
-def pr(stuff, message=None):
-    if message:
-        print(message)
-    print(stuff)
-    print("")
+    raise ValueError("The input matrix should be symmetric.")
