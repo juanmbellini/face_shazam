@@ -30,8 +30,19 @@ def get_subjects_dictionary(path_to_subjects, extension):
     all_subjects = dict(itertools.izip(subjects_images_paths.keys(),
                                        map(lambda subject: map(lambda image: _to_array(image), subject),
                                            subjects_images_paths.values())))
-    _validate(all_subjects)  # Will throw ValueError if the list is not valid TODO: check exception type to use
+    _validate(all_subjects)  # Will throw ValueError if the list is not valid
     return all_subjects
+
+
+def get_one_image(path_to_subjects):
+    """ Returns only one image
+
+    Args:
+        path_to_subjects (str): Path to the directory holding the image.
+    Returns:
+        The image
+    """
+    return _to_array(path_to_subjects)
 
 
 def _get_paths_array(path_to_subjects, extension):
@@ -87,33 +98,28 @@ def _validate(all_subjects_dict):
     if all_subjects_dict is None or not isinstance(all_subjects_dict, dict):
         raise ValueError("The subject's images argument must be a list")
     if not all_subjects_dict:
-        return  # If the list is empty, return  TODO: return or raise exception? Maybe check this later in the execution
+        return  # If the list is empty, return
     all_subjects = all_subjects_dict.values()
 
     # Check each element in the list is a list
     if filter(lambda list_of_subject_images: not isinstance(list_of_subject_images, list), all_subjects):
-        # TODO: define custom exception?
         raise ValueError("There is one or more elements in the list of lists of images per subject that is not a list")
 
     # Check each list of images of each subject has the same size
     amount_of_images_per_subject = len(all_subjects[0])
     if filter(lambda subject_images: len(subject_images) != amount_of_images_per_subject, all_subjects):
-        # TODO: define custom exception?
         raise ValueError("Mismatch between sizes of list of images")
     if amount_of_images_per_subject == 0:
         return  # If all lists are empty, return
-        # TODO: return or raise exception? Maybe check this later in the execution
 
     # Check each image is represented by an ndarray
     if filter(lambda list_of_subject_images:
               filter(lambda image_array:
                      not isinstance(image_array, np.ndarray), list_of_subject_images), all_subjects):
-        # TODO: define custom exception?
         raise ValueError("There is one or more elements that is not an ndarray (representation of image)")
 
     # Check each image has the same shape
     image_shape = all_subjects[0][0].shape
     if filter(lambda subject_images:
               filter(lambda image_array: image_array.shape != image_shape, subject_images), all_subjects):
-        # TODO: define custom exception?
         raise ValueError("Mismatch between image shapes")
