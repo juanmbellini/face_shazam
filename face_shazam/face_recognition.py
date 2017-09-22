@@ -55,6 +55,8 @@ class FaceRecognizer:
                 and (not isinstance(energy_percentage, float) or not (0 < energy_percentage <= 1.0)):
             raise ValueError("None float, or out of range eigen faces percentage. Must be a float between 0 and 1")
 
+        self._pre_process_data(data_set)
+
         # Common values
         separated_data_set_container = self._SeparatedDataSetContainer(data_set, training_percentage)
         self._training_set = separated_data_set_container.training_set
@@ -122,6 +124,16 @@ class FaceRecognizer:
     ##############################
     # Abstract methods
     ##############################
+
+    @abc.abstractmethod
+    def _pre_process_data(self, data_set):
+        """ Pre-processes the given data (i.e change images pixels values).
+        Params:
+            data_set (dict): The dictionary holding each subject's list of images (represented as ndarrays).
+        Returns:
+            None
+        """
+        pass
 
     @abc.abstractmethod
     def _pre_train(self):
@@ -410,7 +422,7 @@ class PCARecognizer(FaceRecognizer):
     """ Class representing an face recognizer using PCA.
     """
 
-    def __init__(self, data_set, training_percentage, eigen_faces_percentage):
+    def __init__(self, data_set, training_percentage, energy_percentage):
         """ Constructor.
         Params:
             data_set (dict): The dictionary holding each subject's list of images (represented as ndarrays).
@@ -418,13 +430,27 @@ class PCARecognizer(FaceRecognizer):
             energy_percentage (float): The percentage of energy (i.e sum of eigen values) to be used.
         """
         # TODO: will the recognizer receive training and testing data? or just training?
-        FaceRecognizer.__init__(self, data_set, training_percentage, eigen_faces_percentage)
+        FaceRecognizer.__init__(self, data_set, training_percentage, energy_percentage)
 
         # Common values
         self._mean_face = np.mean(self._training_set.data, 1)  # Calculates the mean by column
 
         # Values set after training
         self._eigen_faces = None
+
+    def _pre_process_data(self, data_set):
+        """ Pre-processes the given data (i.e change images pixels values).
+        Make all pixels have values between 0 and 1.
+        Params:
+            data_set (dict): The dictionary holding each subject's list of images (represented as ndarrays).
+        Returns:
+            None
+        """
+        for tuple_ in data_set.items():
+            images_list = tuple_[1]
+            for k in range(0, len(images_list)):
+                images_list[k] = images_list[k] / 255.0
+        return
 
     def _pre_train(self):
         """ Performs pre-training of the recognizer (i.e prepares the training and target arrays for the SVM).
@@ -498,3 +524,146 @@ class PCARecognizer(FaceRecognizer):
         _logger.info("Projecting the image in the eigen faces")
         projected_image = self._eigen_faces.transpose() * normalized_image
         return projected_image.transpose()
+
+
+class KPCARecognizer(FaceRecognizer):
+    """ Class representing an face recognizer using Kernel PCA.
+    """
+
+    def __init__(self, data_set, training_percentage, energy_percentage, polynomial_degree=2):
+        """ Constructor.
+        Params:
+            data_set (dict): The dictionary holding each subject's list of images (represented as ndarrays).
+            training_percentage (float): The percentage of training elements.
+            energy_percentage (float): The percentage of energy (i.e sum of eigen values) to be used.
+            polynomial_degree (int): The degree of the polynomial kernel function
+        """
+        # TODO: will the recognizer receive training and testing data? or just training?
+        FaceRecognizer.__init__(self, data_set, training_percentage, energy_percentage)
+
+        if not isinstance(polynomial_degree, int) or not (1 <= polynomial_degree <= 10):
+            raise ValueError("The polynomial degree must be an integer between 1 and 10")
+
+        # Common values
+        self._polynomial_degree = polynomial_degree
+
+        # Values set after training
+        self._training_kernel = None
+        self._training_one_matrix = None
+        self._kernel_eigen_vectors = None
+        pass
+
+    def _pre_process_data(self, data_set):
+        """ Pre-processes the given data (i.e change images pixels values).
+        Make all pixels have values between -1 and 1.
+        Params:
+            data_set (dict): The dictionary holding each subject's list of images (represented as ndarrays).
+        Returns:
+            None
+        """
+        for tuple_ in data_set.items():
+            images_list = tuple_[1]
+            for k in range(0, len(images_list)):
+                images_list[k] = (images_list[k] - 127.5) / 127.5
+        return
+
+    def _pre_train(self):
+        """ Performs pre-training of the recognizer (i.e prepares the training and target arrays for the SVM).
+        The pre-training process consist on:
+            1. Calculate the kernel matrix.
+            2. Center the kernel matrix.
+            3. Calculate eigen vectors and eigen values.
+            4. Normalize eigen vectors.
+            5. Project kernel matrix in eigen vectors
+        Returns:
+            A tuple of two elements, where the first one is the training array, and the second one is the classes array.
+            The training array must be a matrix which has each sample as a row, and each feature as a column.
+            The classes array must be relative to the training array. For example, if sample n (in n-th column)
+            belongs to class m, this list must contain m in the n-th position.
+        """
+        data_matrix = np.array(self._training_set.data.transpose())
+        _logger.info("Calculating the kernel matrix")
+        training_amount = data_matrix.shape[0]
+        kernel = (np.dot(data_matrix, data_matrix.transpose()) / training_amount + 1) ** self._polynomial_degree
+
+        _logger.info("Centering the kernel matrix")
+        one_matrix = np.ones([training_amount, training_amount]) / training_amount
+        kernel -= np.dot(one_matrix, kernel)
+        kernel -= np.dot(kernel, one_matrix)
+        kernel += np.dot(one_matrix, np.dot(kernel, one_matrix))
+
+        self._training_kernel = kernel
+        self._training_one_matrix = one_matrix
+
+        eigen_values, eigen_vectors = self._calculate_eigens(self._training_kernel, self._energy_percentage)
+
+        _logger.info("Resizing eigen vectors")
+        for k in range(0, eigen_vectors.shape[1]):
+            eigen_vectors[:, k] = eigen_vectors[:, k] / np.sqrt(eigen_values[k])
+        self._kernel_eigen_vectors = eigen_vectors
+
+        _logger.info("Projecting the kernel matrix in {} eigen vectors".format(eigen_vectors.shape[1]))
+        projected_kernel = np.dot(self._training_kernel.transpose(), self._kernel_eigen_vectors)
+
+        return projected_kernel, self._training_set.subjects
+
+    def _pre_test(self):
+        """ Performs pre-testing operations, resulting in the testing and target arrays for the SVM
+        The pre-testing process consist on:
+            1. Calculate the testing kernel matrix.
+            2. Center the testing kernel matrix.
+            3. Project the testing kernel matrix in the training kernel's eigen vectors.
+        Returns:
+            A tuple of two elements, where the first one is the testing array, and the second one is the classes array.
+            The testing array must be a matrix which has each sample as a row, and each feature as a column.
+            The classes array must be relative to the testing array. For example, if sample n (in n-th column)
+            belongs to class m, this list must contain m in the n-th position.
+        """
+        # Testing stuff
+        testing_data = np.array(self._testing_set.data.transpose())
+        testing_amount = testing_data.shape[0]
+        # Training stuff
+        training_data = np.array(self._training_set.data.transpose())
+        training_amount = training_data.shape[0]
+
+        testing_kernel = np.dot(testing_data, training_data.transpose())
+        testing_kernel = testing_kernel ** self._polynomial_degree
+
+        testing_one_matrix = np.ones([testing_amount, training_amount]) / training_amount
+        testing_kernel -= np.dot(testing_one_matrix, self._training_kernel)
+        testing_kernel -= np.dot(testing_kernel, self._training_one_matrix)
+        testing_kernel += np.dot(testing_one_matrix , np.dot(self._training_kernel, self._training_one_matrix))
+
+        projected_kernel = np.dot(testing_kernel, self._kernel_eigen_vectors)
+
+        return projected_kernel, self._testing_set.subjects
+
+    def _pre_recognize(self, image):
+        """ Performs pre-recognition operations, resulting in the sample array to predict its class.
+        The pre-recognition process consist on:
+            1. Reshape the image in order to be a matrix with the amount of columns as the amount of pixels it has,
+                and one row.
+            2. Calculate a testing kernel using as testing set the given image.
+            3. Center the testing kernel.
+            4. Project the testing kernel matrix in the training kernel's eigen vectors.
+        Params:
+            ndarray: The image in its ndarray representation.
+        Returns:
+            ndarray: The processed picture to recognize.
+        """
+        # Training stuff
+        training_data = np.array(self._training_set.data.transpose())
+        training_amount = training_data.shape[0]
+
+        _logger.info("Pre-processing the image")
+        features = self._shape[0] * self._shape[1]
+        image = np.reshape(image, [1, features])
+        image_kernel = (np.dot(image, training_data.transpose()) / training_amount + 1) ** self._polynomial_degree
+
+        testing_one_matrix = np.ones([1, training_amount]) / training_amount
+        image_kernel -= np.dot(testing_one_matrix, self._training_kernel)
+        image_kernel -= np.dot(image_kernel, self._training_one_matrix)
+        image_kernel += np.dot(testing_one_matrix , np.dot(self._training_kernel, self._training_one_matrix))
+
+        projected_kernel = np.dot(image_kernel, self._kernel_eigen_vectors)
+        return projected_kernel
