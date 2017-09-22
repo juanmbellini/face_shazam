@@ -98,7 +98,7 @@ def parse_args(args):
         "--recognize-method",
         dest="recognize_method",
         help="Sets the recognition method (i.e PCA or Kernel PCA). Options to be used are: pca or kpca",
-        default=False,
+        default="pca",
         action="store",
         type=str.lower
     )
