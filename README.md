@@ -112,6 +112,14 @@ To set the image extension, use the ```-ext``` or ```--image-extension``` argume
 $ face_shazam -s ~/subjects -ext bpm
 ```
 
+### Setting the recognition method
+In order to set the recognition method (PCA or Kernel-PCA), use the ```-r``` or ```--recognize-method``` arguments,
+together with the desired method (```pca```or ```kpca```).
+For example:
+```
+$ face_shazam -s ~/subjects -ext bpm --recognize-method kpca
+```
+
 ### Setting training percentage
 To set the training percentage, use the ```-tp``` or ```--training-percentage``` arguments,
 including the percentage to use. It must be a value between 0 (exclusive) and 1 (inclusive).
@@ -122,18 +130,28 @@ $ face_shazam -s ~/subjects -ext bpm -tp 0.6  # Will use only 6 images if the su
 ```
 The default value is ```0.6```.
 
-### Setting eigen faces percentage
-To set the eigen faces percentage, use the ```-efp``` or ```--eigen-faces-percentage``` arguments,
+### Setting energy percentage
+To set the energy percentage, use the ```-e``` or ```--energy-percentage``` arguments,
 including the percentage to use. It must be a value between 0 (exclusive) and 1 (inclusive).
-The eigen faces percentage indicates how many eigen faces (in percentage of total sum of eigen values) 
+The energy percentage indicates how many eigen faces (in percentage of total sum of eigen values) 
 will be used in the training process of the recognizer. Note that before truncating the list, 
 the eigen vectors used to calculate the eigen faces are sorted according to their associated eigen value 
 (being first in the list those with a bigger eigen value).
 For example:
 ```
-$ face_shazam -s ~/subjects -ext bpm -efp 0.995
+$ face_shazam -s ~/subjects -ext bpm -e 0.995
 ```
 The default value is ```None``` (all eigen faces will be used).
+
+### Setting kernel polynomial degree
+To set the kernel polynomial degree, use the ```-kpd``` or ```--kernel-polynomial-degree``` arguments,
+including the percentage to use. It must be an integer between 1 and 10.
+This option should be used only with Kernel PCA recognition.
+For example:
+```
+$ face_shazam -s ~/subjects -ext bpm -e 0.995 -kpd 3
+```
+The default value is ```2```.
 
 
 ## Authors

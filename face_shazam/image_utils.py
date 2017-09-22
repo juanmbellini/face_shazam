@@ -71,7 +71,7 @@ def _to_array(path_to_image):
     Returns:
         ndarray: The result array of applying the transformation.
     """
-    return im.imread(path_to_image) / 255.0  # Read image
+    return im.imread(path_to_image)  # Read image as is
 
 
 def _validate(all_subjects_dict):

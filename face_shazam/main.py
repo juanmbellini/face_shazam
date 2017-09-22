@@ -4,7 +4,7 @@ import logging
 import sys
 
 import image_utils
-from pca_recognition import PCARecognizer
+import face_recognition
 from face_shazam import __version__
 
 _logger = logging.getLogger(__name__)
@@ -74,13 +74,33 @@ def parse_args(args):
         type=float
     )
     parser.add_argument(
-        "-efp",
-        "--eigen-faces-percentage",
-        dest="eigen_faces_percentage",
+        "-e",
+        "--energy-percentage",
+        dest="energy_percentage",
         help="Set the percentage of eigen faces to be used by the recognizer training process.",
         default=None,
         action="store",
         type=float
+    )
+    parser.add_argument(
+        "-kpd",
+        "--kernel-polynomial-degree",
+        dest="kernel_polynomial_degree",
+        help="Set the kernel polynomial degree to be used with Kernel PCA recognition.",
+        default=2,
+        action="store",
+        type=int
+    )
+
+    # Method arguments
+    parser.add_argument(
+        "-r",
+        "--recognize-method",
+        dest="recognize_method",
+        help="Sets the recognition method (i.e PCA or Kernel PCA). Options to be used are: pca or kpca",
+        default=False,
+        action="store",
+        type=str.lower
     )
 
     return parser.parse_args(args)
@@ -96,6 +116,29 @@ def setup_logging(log_level):
                         stream=sys.stdout,
                         format="[%(asctime)s] %(levelname)s:%(name)s: %(message)s",
                         datefmt="%Y-%m-%d %H:%M:%S")
+
+
+def create_recognizer(args, all_subjects):
+    """ Returns the corresponding recognizer according to the set program arguments.
+
+    Args:
+        :obj:`argparse.Namespace`: command line parameters namespace
+    Returns:
+        FaceRecognizer: The already set recognizer (not trained).
+    """
+    recognizer = args.recognize_method
+    training_percentage = args.training_percentage
+    energy_percentage = args.energy_percentage
+    if recognizer == "pca":
+        _logger.info("Using PCA for face recognition")
+        if "-kpd" in sys.argv or "kernel_polynomial_degree" in sys.argv:
+            _logger.warn("The kernel polynomial degree must be used with kpca recognition.")
+        return face_recognition.PCARecognizer(all_subjects, training_percentage, energy_percentage)
+    elif recognizer == "kpca":
+        _logger.info("Using Kernel-PCA for face recognition")
+        kernel_polynomial_degree = args.kernel_polynomial_degree
+        return face_recognition.KPCARecognizer(all_subjects, training_percentage, energy_percentage,
+                                               kernel_polynomial_degree)
 
 
 def main(args):
@@ -118,9 +161,8 @@ def main(args):
         exit(1)
 
     # noinspection PyUnboundLocalVariable
-    # If all_subjects is not initialized, exit(1) was executed
-    recognizer = PCARecognizer(all_subjects, args.training_percentage)
-    recognizer.train(args.eigen_faces_percentage)
+    recognizer = create_recognizer(args, all_subjects)  # If all_subjects is not initialized, exit(1) was executed
+    recognizer.train()
     print("The score achieved is {}%".format(recognizer.test() * 100))
     return
 
