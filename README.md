@@ -153,6 +153,15 @@ $ face_shazam -s ~/subjects -ext bpm -e 0.995 -kpd 3
 ```
 The default value is ```2```.
 
+### Setting subject to be recognized
+To set the a subject to be recognized, use the ```-S``` or ```--subject``` arguments,
+including the path to to the image of the subject.
+If not set, the system will only display the score it achieved.
+For example:
+```
+$ face_shazam -s ~/subjects -ext bpm -e 0.995 -kpd 3 --subject ./subjects/s3/8.pgm
+```
+
 
 ## Authors
 * [Juan Marcos Bellini](https://github.com/juanmbellini)

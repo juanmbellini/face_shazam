@@ -99,7 +99,7 @@ class FaceRecognizer:
 
         return self._clf.score(testing_array, classes_array)
 
-    def recognize(self, image):
+    def recognize(self, image, pre_process=False):
         """ Recognizes the given given picture, telling to whom it belongs.
         Note that if this recognizer was not trained with the subject to whom the given picture belongs to,
         it will classify it with any subject (will result in a false positive).
@@ -117,6 +117,12 @@ class FaceRecognizer:
             raise ValueError("The image to be recognized must be represented as an ndarray")
         if not image.shape == self._shape:
             raise ValueError("Can't recognize an image of different size than the used to train the recognizer")
+
+        if pre_process:
+            _logger.info("Pre-processing image")
+            aux_dict = {"some": [image]}
+            self._pre_process_data(aux_dict)
+            image = aux_dict["some"][0]
 
         _logger.info("Trying to recognize the given image")
         prediction_array = self._pre_recognize(image)

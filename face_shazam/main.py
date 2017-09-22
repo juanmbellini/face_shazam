@@ -103,6 +103,17 @@ def parse_args(args):
         type=str.lower
     )
 
+    # Subjects arguments
+    parser.add_argument(
+        "-S",
+        "--subject",
+        dest="subject_to_recognize",
+        help="Sets path to the subject to be recognized",
+        default=None,
+        action="store",
+        type=str
+    )
+
     return parser.parse_args(args)
 
 
@@ -164,6 +175,11 @@ def main(args):
     recognizer = create_recognizer(args, all_subjects)  # If all_subjects is not initialized, exit(1) was executed
     recognizer.train()
     print("The score achieved is {}%".format(recognizer.test() * 100))
+    subject_image_path = args.subject_to_recognize
+    if subject_image_path is not None:
+        subject_image = image_utils.get_one_image(subject_image_path)
+        s = recognizer.recognize(subject_image, pre_process=True)
+        print("Subject {} was recognized".format(s[0]))
     return
 
 
