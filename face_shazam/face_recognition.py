@@ -4,6 +4,7 @@ import itertools
 import logging
 import math
 import abc
+import eig_utils
 
 import numpy as np
 from sklearn.svm import LinearSVC
@@ -190,7 +191,7 @@ class FaceRecognizer:
             eigen value v[i] corresponds to eigen vector w[:, i] .
         """
         _logger.info("Calculating eigen values and eigen vectors")
-        eigen_values, eigen_vectors = np.linalg.eigh(matrix_)  # TODO: Use own methods to calculate eigens
+        eigen_values, eigen_vectors = eig_utils.s_eig(matrix_)
 
         _logger.info("Sorting the eigen vectors")
         sorted_indexes = eigen_values.argsort()[::-1]
@@ -596,10 +597,11 @@ class KPCARecognizer(FaceRecognizer):
         self._training_one_matrix = one_matrix
 
         eigen_values, eigen_vectors = self._calculate_eigens(self._training_kernel, self._energy_percentage)
+        eigen_values /= training_amount
 
         _logger.info("Resizing eigen vectors")
         for k in range(0, eigen_vectors.shape[1]):
-            eigen_vectors[:, k] = eigen_vectors[:, k] / np.sqrt(eigen_values[k])
+            eigen_vectors[:, k] = eigen_vectors[:, k] / np.sqrt(abs(eigen_values[k]))
         self._kernel_eigen_vectors = eigen_vectors
 
         _logger.info("Projecting the kernel matrix in {} eigen vectors".format(eigen_vectors.shape[1]))
