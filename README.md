@@ -99,7 +99,7 @@ $ face_shazam -vv
 ```
 
 ### Setting path of subjects images
-To set the path where the subjects images are, use the ```-tp``` or ```--subjects-path``` arguments. For example:
+To set the path where the subjects images are, use the ```-s``` or ```--subjects-path``` arguments. For example:
 ```
 $ face_shazam -s ~/subjects
 ```
